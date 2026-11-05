@@ -1,0 +1,41 @@
+name: hermes-watchdog
+version: "0.1.0"
+description: "Bounded supervision for explicitly launched Hermes workers: durable outcomes, deadline cancellation requests, failure evidence, and a Desktop activity page."
+author: "Arthur Edmond"
+provides_tools:
+  - watchdog_start
+  - watchdog_status
+  - watchdog_control
+provides_hooks:
+  - subagent_start
+  - subagent_stop
+  - pre_tool_call
+  - post_tool_call
+  - pre_api_request
+  - post_api_request
+  - api_request_error
+  - on_human_input_request
+  - on_session_delete
+  - on_session_reset
+  - on_session_finalize
+config_schema:
+  enabled:
+    type: bool
+    default: true
+    description: Enable new supervised tasks.
+  deadline_seconds:
+    type: int
+    default: 900
+    description: Cancellation-request deadline (10–1800 seconds), not a hard kill.
+  preset:
+    type: str
+    default: search
+    description: Requested worker toolset; search is the only supported value.
+  retry_mode:
+    type: str
+    default: manual
+    description: No automatic retry. Manual retry remains unavailable until host capability proof exists.
+  judge_enabled:
+    type: bool
+    default: false
+    description: Allow up to two bounded model judgments per task.

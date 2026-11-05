@@ -1,0 +1,13 @@
+I have a customer call in 20 minutes with a Shopify merchant comparing AI customer-support products.
+
+Use watchdog_start to launch exactly three separate background research tasks, each with deadline_seconds=180 and preset="search":
+
+1. Find Intercom Fin's current published pricing and billing unit, and any qualification that materially affects the price.
+2. Find Zendesk AI agents' current published pricing and billing unit, and any qualification that materially affects the price.
+3. Find Gorgias AI Agent's documented Shopify actions and escalation to a human, including any documented limitations.
+
+Give each worker this context: use public official sources; return a concise answer with source URLs and the date checked; say "not found" when the public documentation does not establish a fact. Do not sign in, submit forms, contact anyone, or make changes.
+
+After launching the workers, reply with their task IDs and any launch refusals, without waiting for results. Do not poll repeatedly or launch replacement tasks. The 180-second deadline requests cancellation; it is not a guaranteed stop.
+
+We will work on the call agenda while the research runs.

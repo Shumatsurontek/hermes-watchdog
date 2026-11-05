@@ -1,0 +1,20 @@
+[project]
+name = "hermes-watchdog"
+version = "0.1.0"
+description = "Bounded supervision for Hermes workers"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["E402"]
+"dashboard/plugin_api.py" = ["E402"]

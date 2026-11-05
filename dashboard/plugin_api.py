@@ -1,0 +1,67 @@
+"""Authenticated host-mounted API. HTTP only queues actions; it never controls handles."""
+
+import hashlib
+import importlib.util
+import sqlite3
+import sys
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
+
+# Hermes loads dashboard backends as standalone modules, independently of the
+# agent plugin package. Load ONLY our own package under a path-specific namespace
+# so installations in different profiles cannot import each other's code/state.
+_package = Path(__file__).resolve().parents[1] / "watchdog"
+_name = "watchdog_api_" + hashlib.sha256(str(_package).encode()).hexdigest()[:12]
+if _name not in sys.modules:
+    _spec = importlib.util.spec_from_file_location(
+        _name, _package / "__init__.py", submodule_search_locations=[str(_package)]
+    )
+    if _spec is None or _spec.loader is None:
+        raise ImportError("Cannot load Watchdog backend package")
+    _module = importlib.util.module_from_spec(_spec)
+    sys.modules[_name] = _module
+    _spec.loader.exec_module(_module)
+from importlib import import_module
+
+_storage = import_module(_name + ".storage")
+Rejected = import_module(_name + ".policy").Rejected
+
+router = APIRouter()
+
+
+def ledger():
+    store = _storage.open_store()
+    try:
+        yield store
+    except Rejected as exc:
+        raise HTTPException(409, str(exc)) from None
+    except sqlite3.OperationalError:
+        raise HTTPException(503, "Watchdog storage is busy or unavailable") from None
+    finally:
+        store.close()
+
+
+class Action(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    action: str = Field(pattern="^cancel$")
+    session_key: str = Field(min_length=1, max_length=256)
+    revision: int = Field(ge=1)
+    idempotency_key: str = Field(min_length=8, max_length=80)
+
+
+@router.get("/tasks")
+def tasks(cursor: str = Query("", max_length=64), limit: int = Query(50, ge=1, le=50), store=Depends(ledger)):
+    return store.page(cursor=cursor, limit=limit)
+
+
+@router.get("/tasks/{task_id}")
+def task(task_id: str, store=Depends(ledger)):
+    return store.public(task_id, detail=True)
+
+
+@router.post("/tasks/{task_id}/actions", status_code=202)
+def action(task_id: str, body: Action, store=Depends(ledger)):
+    store.request_cancel(task_id, body.session_key, body.revision, body.idempotency_key)
+    return {"task_id": task_id, "action": "cancel_queued"}
