@@ -67,3 +67,66 @@ class ApiTests(unittest.TestCase):
         body = {"action": "cancel", "session_key": "session-a", "revision": 1, "idempotency_key": "api-test-123"}
         self.assertEqual(self.client.post("/tasks/" + self.tid + "/actions", json=body).status_code, 409)
         self.assertEqual(self.client.get("/tasks?limit=51").status_code, 422)
+
+    def native_incident(self):
+        from watchdog.native import NativeObserver
+
+        observer = NativeObserver(self.store.native)
+        for child in ("native-a", "native-b"):
+            self.store.native.start("parent-a", child, "session-a")
+        for child, call in (("native-a", "1"), ("native-a", "2"), ("native-b", "3")):
+            observer.observe(
+                "post_tool_call",
+                {
+                    "session_id": child,
+                    "turn_id": "turn",
+                    "tool_call_id": call,
+                    "tool_name": "connector",
+                    "status": "error",
+                    "error_message": "SECRET_ERROR",
+                },
+            )
+        return self.client.get("/incidents?view=related").json()["incidents"][0]
+
+    def test_native_reads_hide_route_raw_errors_and_capabilities(self):
+        item = self.native_incident()
+        response = self.client.get("/incidents/" + item["id"])
+        self.assertEqual(response.status_code, 200)
+        for secret in ("SECRET_ERROR", "session-a", "PRIVATE_CAPABILITY"):
+            self.assertNotIn(secret, response.text)
+        self.assertEqual(response.json()["parent_session_id"], "parent-a")
+        self.assertEqual(self.client.get("/native-runs?view=returned").json()["runs"], [])
+        self.assertEqual(len(self.client.get("/native-runs/native-a").json()["evidence"]), 2)
+
+    def test_native_action_is_idempotent_and_never_injects_from_http(self):
+        item = self.native_incident()
+        body = {
+            "action": "request_recovery_review",
+            "parent_session_id": "parent-a",
+            "revision": item["revision"],
+            "idempotency_key": "native-action-key",
+        }
+        url = "/incidents/" + item["id"] + "/actions"
+        first = self.client.post(url, json=body)
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(first.json(), self.client.post(url, json=body).json())
+        state = self.client.get("/incidents/" + item["id"]).json()["delivery"][0]["state"]
+        self.assertEqual(state, "pending")
+
+    def test_native_scope_revision_and_schema_cannot_be_bypassed(self):
+        item = self.native_incident()
+        url = "/incidents/" + item["id"] + "/actions"
+        body = {
+            "action": "request_recovery_review",
+            "parent_session_id": "wrong",
+            "revision": item["revision"],
+            "idempotency_key": "native-action-key",
+        }
+        self.assertEqual(self.client.post(url, json=body).status_code, 409)
+        body.update(parent_session_id="parent-a", revision=item["revision"] + 1)
+        self.assertEqual(self.client.post(url, json=body).status_code, 409)
+        body.update(revision=item["revision"], profile="another-profile")
+        self.assertEqual(self.client.post(url, json=body).status_code, 422)
+        self.assertEqual(self.client.get("/incidents?limit=51").status_code, 422)
+        self.assertEqual(self.client.get("/native-runs?view=needs").status_code, 422)
+        self.assertEqual(self.client.get("/incidents/unknown").status_code, 409)

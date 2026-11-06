@@ -1,6 +1,6 @@
 # The customer call in 20 minutes
 
-This is the current explicit-launch smoke test. The stronger product direction is [shared failure supervision inside normal Hermes work](native-integration.md); it requires additional implementation and acceptance testing.
+This is the optional legacy launcher's smoke test. The v0.2 prerelease adds a [native recovery inbox](native-integration.md) for ordinary Hermes delegates; native Desktop and live-provider acceptance remain pending.
 
 ## The job
 

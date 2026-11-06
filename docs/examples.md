@@ -1,57 +1,37 @@
 # Usage examples
 
-These examples target the v0.1.0 preview: local macOS/Linux Hermes Desktop, in-process plugins, search workers launched explicitly through Watchdog. They are instructions to try, not transcripts or guaranteed research outcomes. Complete the README setup first.
+These prompts are intended workflows, not claims of completed live-provider demos. Native observation needs a local Desktop conversation and the enabled plugin; no `watchdog_start` call is required.
 
-## 1. Check a plugin before installing it
+## Release preparation
 
-Paste into a Desktop conversation, replacing the name:
+> Prepare the next release. Delegate separate read-only workers to inspect CI failures, identify release blockers, and draft a rollout checklist from local documentation. Preserve useful partial work and surface decisions that need me.
 
-> Use watchdog_start to research the public documentation for the Hermes plugin NAME. Give it a 180-second deadline and the search preset. Ask for its supported platforms, required services, data disclosures, and links to official sources. Mark anything not established by the sources as unknown. Return the task ID immediately; do not install anything or wait for the worker.
+If independent workers hit matching errors, open **Related failures**. Inspect the group, then choose **Send recovery brief** to ask the original parent to review the evidence and current state. The plugin will not retry writes or diagnose a credential failure from a generic error.
 
-While it runs:
+## Waiting for approval
 
-> Help me write a short checklist for deciding whether this plugin fits my local setup. Use what we already know; don't wait for the research.
+> Delegate the investigation, but ask me before making changes.
 
-When notified:
+When a worker reaches a real Hermes human-input request, **Needs you** identifies it. Open the conversation to answer. An unrelated successful tool call does not clear that wait. Sending a recovery brief is not approval.
 
-> Use watchdog_status to read the returned result. Separate documented facts from unknowns, and keep the source links. A successful worker outcome does not itself establish that the plugin is safe or compatible.
+## Keep the returned work
 
-Watchdog should retain the outcome even if the chat notification cannot be accepted. The search preset supplies web search, not a general web-content extraction or private-repository toolset.
+> Split this investigation into independent tasks. Return partial findings as each worker finishes, even if another is blocked.
 
-## 2. Research release requirements while writing the README
+**Returned results** points to native worker transcripts. Open the worker to inspect its output, or open the root conversation to continue. Reported completion does not verify the content.
 
-> Launch two separate Watchdog search workers. One should research the official Hermes catalog-submission requirements; the other should research the official Desktop-plugin compatibility requirements. Give each a 120-second deadline. Ask for concise findings and official source URLs. Return both task IDs and any launch refusals immediately, without polling or starting replacement workers.
+## Conversation-local status
 
-Then continue the same conversation:
+Use `/watchdog status`, or ask:
 
-> While those run, draft a README outline for a local Desktop plugin that supervises background search tasks. Don't claim that the plugin is already accepted into the marketplace.
+> Show the Watchdog incidents and supervised tasks for this conversation. Distinguish returned work, unresolved execution, and recovery-message acceptance.
 
-This exercises independent results and the responsive parent conversation. There can be at most three execution reservations in the profile; unresolved older attempts still consume a reservation.
+The status response is scoped to that conversation. It does not combine results from other profiles or chats.
 
-## 3. Inspect and cancel a task you no longer need
+## Optional legacy search launcher
 
-Ask in the originating Desktop conversation:
+Run the setup helper with `--legacy-launcher` to enable its search toolset, then ask:
 
-> Show my Watchdog tasks and their execution, supervision, and notification states. Request cancellation of TASK_ID because I no longer need its research. Do not launch a replacement.
+> Use watchdog_start to research the official Hermes catalog submission requirements. Request cancellation after 120 seconds and return the task ID immediately.
 
-Or use the slash commands, substituting an actual ID returned by Watchdog:
-
-```text
-/watchdog status
-/watchdog inspect TASK_ID
-/watchdog cancel TASK_ID
-```
-
-Open **Watchdog** in the sidebar to inspect evidence and the returned result. “Cancellation queued” or “cancel requested” is not confirmation that a tool stopped. A cancelled or interrupted agent can still have an underlying tool unwinding, so its capacity reservation remains.
-
-## 4. Exercise a short deadline
-
-> Use Watchdog to compare the public plugin-development documentation of Hermes and another agent framework. Request source URLs and unresolved questions. Set a 10-second cancellation-request deadline for this test and return the task ID immediately.
-
-This is a deliberately short deadline, not a simulated provider outage. The worker might finish before the deadline; do not label that as a timeout. Otherwise, Watchdog requests cancellation on a monitor poll and records the observed outcome. Polls run every five seconds, and cancellation is cooperative.
-
-Avoid repeatedly running this example in a working profile: unresolved execution retains its slot. There is no force-release or retry control in this version. Use a disposable profile for failure testing and never delete live task data to bypass the bound.
-
-## What is outside these examples
-
-Native `delegate_task` observation, shared GitHub incidents, connection blocking, automatic retries, and recovery of running workers after restart are not implemented. The [native integration design](native-integration.md) is a proposal, not a v0.1.0 feature list.
+Inspect it in **Legacy launcher history**, or use `/watchdog inspect <id>` and `/watchdog cancel <id>`. A deadline requests cooperative cancellation; it is not a hard kill or spend cap. Retry remains unavailable because the host does not attest repeat-safe execution. Existing v0.1 task history stays in this view after migration.

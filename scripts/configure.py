@@ -10,6 +10,7 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile-home", type=Path, help="Defaults to HERMES_HOME or ~/.hermes")
+    parser.add_argument("--legacy-launcher", action="store_true", help="Also enable the optional watchdog_start search launcher")
     args = parser.parse_args()
     profile = (args.profile_home or Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")).expanduser().resolve()
     if not (profile / "plugins/hermes-watchdog/plugin.yaml").is_file():
@@ -32,13 +33,13 @@ def main():
     print(f"Configuring Watchdog in {profile}", flush=True)
     hermes("plugins", "enable", "hermes-watchdog")
     hermes("config", "set", "plugins.entries.hermes-watchdog.allow_gateway_injection", "true")
-    # Desktop uses the CLI tool selection. Materialize the existing selection
-    # before adding search, which is a valid lifecycle alias absent from the CLI selector.
+    # Status tools do not change native delegate tool inheritance. Search is
+    # required only by the optional v0.1 launcher, never by passive observation.
     hermes("tools", "enable", "watchdog", "--platform", "cli")
     toolsets = json.loads(hermes("config", "get", "platform_toolsets.cli", "--json", capture=True))
     if not isinstance(toolsets, list) or len(toolsets) > 128 or not all(isinstance(x, str) for x in toolsets):
         raise SystemExit("Unexpected parent tool configuration; search was not added.")
-    if "search" not in toolsets:
+    if args.legacy_launcher and "search" not in toolsets:
         hermes("config", "set", "platform_toolsets.cli", json.dumps(toolsets + ["search"]))
     print("Reopen Hermes Desktop, enable Watchdog in Capabilities → Plugins, and start a new conversation.")
 

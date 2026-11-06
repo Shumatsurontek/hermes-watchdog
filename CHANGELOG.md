@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 — preview
+
+Normal Desktop delegates now appear automatically in a recovery inbox. Related failures are grouped within their root conversation; paired human-input waits and returned workers remain visible. A user can open the originating conversation and send one durable recovery brief without starting a replacement worker.
+
+- Add metadata-only native evidence, restart uncertainty, and additive schema v2 migration.
+- Add parent/revision/idempotency validation, bounded delivery attempts, and explicit ambiguous acceptance.
+- Withdraw pending requests on observed stop, deletion, or reset; preserve them on tab closure.
+- Keep v0.1 launcher behavior and execution reservations separate; make search setup optional.
+- Keep the existing banner. No connector breaker, automatic replay, or always-on judge added.
+
+Native Desktop/live-provider acceptance and the competition demo remain pending. This is a prerelease, not a claim of completed native acceptance.
+
 ## 0.1.0 — preview
 
 - Explicitly launched search workers with a durable task ledger and bounded monitoring.

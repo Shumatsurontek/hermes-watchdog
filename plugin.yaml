@@ -1,6 +1,6 @@
 name: hermes-watchdog
-version: "0.1.0"
-description: "Bounded supervision for explicitly launched Hermes workers: durable outcomes, deadline cancellation requests, failure evidence, and a Desktop activity page."
+version: "0.2.0"
+description: "A native Hermes recovery inbox: related worker failures, human waits, returned results, and scoped recovery briefs."
 author: "Arthur Edmond"
 provides_tools:
   - watchdog_start
@@ -15,10 +15,20 @@ provides_hooks:
   - post_api_request
   - api_request_error
   - on_human_input_request
+  - on_human_input_resolved
+  - on_session_end
   - on_session_delete
   - on_session_reset
   - on_session_finalize
 config_schema:
+  observe_native:
+    type: bool
+    default: true
+    description: Observe normal Desktop delegates without changing their tools or execution.
+  native_notifications:
+    type: bool
+    default: false
+    description: Opt in to incident notices. Native completion messages remain Hermes-owned.
   enabled:
     type: bool
     default: true

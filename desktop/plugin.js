@@ -1,7 +1,7 @@
 import { createElement as h, useCallback, useEffect, useRef, useState } from 'react';
 import { host, useValue, ROUTES_AREA, SIDEBAR_NAV_AREA, gatewayActivationEpoch } from '@hermes/plugin-sdk';
 
-const colors = { running: '#8b7ae6', starting: '#8b7ae6', succeeded: '#51a88a', failed: '#df826b', unknown: '#d4ac67', cancel_requested: '#d4ac67', cancelled: '#9c9ba7', interrupted: '#9c9ba7' };
+const colors = { active: '#8b7ae6', open: '#df826b', returned: '#51a88a', accepted: '#51a88a', resolved: '#51a88a', follow_up_requested: '#8b7ae6', running: '#8b7ae6', starting: '#8b7ae6', succeeded: '#51a88a', failed: '#df826b', unknown: '#d4ac67', cancel_requested: '#d4ac67', cancelled: '#9c9ba7', interrupted: '#9c9ba7' };
 const styles = {
   page: { padding: '32px', maxWidth: 1140, margin: '0 auto', color: 'var(--ui-text-primary)', fontFamily: 'inherit' },
   eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.13em', color: 'var(--ui-text-tertiary)', marginBottom: 10 },
@@ -14,8 +14,10 @@ const label = (value) => String(value).replaceAll('_', ' ');
 const badge = (state) => h('span', { style: { color: colors[state] || '#9c9ba7', fontSize: 12, whiteSpace: 'nowrap' } }, '● ', label(state));
 const button = (text, onClick, disabled = false, title = '') => h('button', { type: 'button', style: { ...styles.button, opacity: disabled ? .5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }, disabled, title, onClick }, text);
 const time = (value) => value ? new Date(value * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+// Shared across page modes so switching tabs cannot start a second in-flight call.
+const io = { read: {current: false}, action: {current: false} };
 
-function Watchdog({ ctx }) {
+function LegacyWatchdog({ ctx }) {
   const profile = useValue(host.state.profile);
   const gateway = useValue(host.state.gateway);
   const [page, setPage] = useState({ tasks: [], next_cursor: null });
@@ -28,8 +30,8 @@ function Watchdog({ ctx }) {
   const [refresh, setRefresh] = useState(0);
   const alive = useRef(false);
   const route = useRef(null);
-  const actionPending = useRef(false);
-  const readPending = useRef(false);
+  const actionPending = io.action;
+  const readPending = io.read;
 
   useEffect(() => { setCursor(''); setSelected(null); setDetail(null); setPage({ tasks: [], next_cursor: null }); }, [profile, gateway]);
   useEffect(() => {
@@ -147,6 +149,153 @@ function Watchdog({ ctx }) {
           h('pre', { style: { fontFamily: 'inherit', fontSize: 12, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.6 } }, detail.result)))),
     h('p', { style: { ...styles.muted, fontSize: 11, marginTop: 24 } }, 'Cancellation is cooperative. A worker may keep running after a deadline. Watchdog keeps unresolved work visible and reserves its capacity until the outcome is known.')
   );
+}
+
+const views = [['needs', 'Needs you'], ['related', 'Related failures'], ['returned', 'Returned results'], ['all', 'All workers']];
+const incidentTitle = (item) => ({ human_input: item.execution_unknown ? 'Human input needs inspection — execution unknown' : 'Waiting for your input', related_failures: 'Matching failures across workers', worker_failed: 'A worker reported failure', worker_interrupted: 'A worker was interrupted' }[item.kind] || label(item.state));
+const emptyText = {needs: 'No human waits or worker failures need attention.', related: 'No related failure groups observed.', returned: 'No worker results have returned yet.', all: 'Ask Hermes to delegate a task. Native workers will appear here automatically.'};
+
+function NativeInbox({ctx}) {
+  const profile = useValue(host.state.profile);
+  const gateway = useValue(host.state.gateway);
+  const [view, setView] = useState('needs');
+  const [page, setPage] = useState({incidents: [], runs: [], health: {}});
+  const [cursor, setCursor] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState(false);
+  const [error, setError] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const route = useRef(null);
+  const alive = useRef(false);
+  const intent = useRef(null);
+  const isRuns = view === 'returned' || view === 'all';
+  const base = isRuns ? '/native-runs' : '/incidents';
+
+  const clear = () => {setPage({incidents: [], runs: [], health: {}}); setCursor(''); setSelected(null); setDetail(null);};
+  useEffect(() => {alive.current = true; return () => {alive.current = false;};}, []);
+  useEffect(() => {clear(); setError('');}, [profile, gateway, view]);
+  useEffect(() => {
+    let observed = gatewayActivationEpoch();
+    const timer = setInterval(() => {
+      const next = gatewayActivationEpoch();
+      if (next !== observed) {observed = next; clear(); setRefresh(v => v+1);}
+    }, 500);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    let cancelled = false, timer;
+    const scope = {profile, epoch: gatewayActivationEpoch()};
+    route.current = scope;
+    const current = () => !cancelled && alive.current && host.state.profile.get() === profile && gatewayActivationEpoch() === scope.epoch;
+    async function poll() {
+      if (!current()) return;
+      if (io.read.current) {timer = setTimeout(poll, 500); return;}
+      io.read.current = true;
+      try {
+        const next = await ctx.rest(base + '?limit=50&view=' + view + '&cursor=' + encodeURIComponent(cursor));
+        if (!current()) return;
+        setPage(next);
+        if (selected) {
+          const item = await ctx.rest(base + '/' + encodeURIComponent(selected));
+          if (!current()) return;
+          setDetail(item);
+        }
+        setError('');
+      } catch (e) {if (current()) setError(e.message || 'Watchdog backend unavailable.');}
+      finally {
+        io.read.current = false;
+        if (current()) {setLoading(false); timer = setTimeout(poll, 5000);}
+      }
+    }
+    setLoading(true); poll();
+    return () => {cancelled = true; clearTimeout(timer);};
+  }, [ctx, profile, gateway, view, cursor, selected, refresh]);
+
+  async function act(action, target) {
+    const scope = route.current;
+    const current = () => alive.current && route.current === scope && host.state.profile.get() === scope.profile && gatewayActivationEpoch() === scope.epoch;
+    if (!detail || io.action.current || !current()) return;
+    io.action.current = true; setActing(true);
+    try {
+      if (action === 'open') {
+        await host.openSession(target, {profile, intent: 'main'});
+      } else {
+        const key = [detail.id, detail.revision, action].join(':');
+        // A transport failure may follow a committed action. Reuse the nonce
+        // on an unchanged revision instead of manufacturing a second intent.
+        if (intent.current?.key !== key) intent.current = {key, nonce: crypto.randomUUID()};
+        await ctx.rest('/incidents/' + encodeURIComponent(detail.id) + '/actions', {method: 'POST', body: {
+          action, parent_session_id: detail.parent_session_id, revision: detail.revision, idempotency_key: intent.current.nonce,
+        }});
+      }
+      if (current()) {setError(''); setRefresh(v => v+1);}
+    } catch (e) {if (current()) setError(e.message || 'Action failed. Refresh to inspect its state before trying again.');}
+    finally {io.action.current = false; if (alive.current) setActing(false);}
+  }
+  const rows = isRuns ? page.runs || [] : page.incidents || [];
+  const disabled = acting || loading || Boolean(error);
+  const root = detail?.root_id;
+  const members = detail?.members || [];
+
+  return h('main', {style: styles.page},
+    h('div', {style: styles.eyebrow}, 'Hermes / Watchdog'),
+    h('div', {style: styles.row}, h('h1', {style: {fontSize: 34, fontWeight: 500, letterSpacing: '-.04em', margin: 0}}, 'Keep the useful work. Resolve the blocker.'),
+      h('span', {style: styles.muted}, profile || 'default', ' · ', loading ? 'Refreshing…' : 'Updates every 5 seconds')),
+    h('p', {style: {...styles.muted, maxWidth: 700, margin: '14px 0 26px'}}, 'A recovery inbox for normal Hermes delegates. See who needs you, inspect related failures, and bring the context back to your conversation.'),
+    h('nav', {'aria-label': 'Watchdog inbox views', style: {...styles.row, justifyContent: 'flex-start', marginBottom: 24}},
+      ...views.map(([value, title]) => h('button', {key: value, type: 'button', 'aria-pressed': view === value,
+        style: {...styles.button, background: view === value ? '#7c58ca' : 'var(--ui-bg-surface)', color: view === value ? '#fff' : 'inherit'}, onClick: () => {clear(); setView(value);}}, title))),
+    error && h('div', {role: 'alert', style: {...styles.card, borderColor: '#df826b', marginBottom: 16}}, error, ' ', button('Refresh', () => setRefresh(v => v+1))),
+    ...Object.entries(page.health || {}).map(([key, value]) => h('div', {key, role: 'status', style: {...styles.card, borderColor: '#d4ac67', marginBottom: 16}}, value)),
+    h('div', {style: {display: 'grid', gridTemplateColumns: detail ? 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))' : '1fr', gap: 20}},
+      h('section', {style: styles.card, 'aria-label': 'Inbox items'},
+        !rows.length && h('p', {style: styles.muted}, loading ? 'Loading native work…' : emptyText[view]),
+        ...rows.map(item => {
+          const id = isRuns ? item.session_id : item.id;
+          return h('button', {key: id, type: 'button', onClick: () => {setSelected(id); setDetail(null);},
+            style: {...styles.button, display: 'block', textAlign: 'left', width: '100%', padding: 16, marginBottom: 10, borderColor: selected === id ? '#9877e0' : 'var(--ui-border)'}},
+            h('div', {style: styles.row}, h('strong', {style: {fontWeight: 500, fontSize: 14}}, incidentTitle(item)), badge(item.waiting ? 'waiting for you' : item.status || item.state)),
+            h('div', {style: {...styles.muted, marginTop: 8, overflowWrap: 'anywhere'}}, isRuns ? item.session_id : item.worker_count + ' worker' + (item.worker_count === 1 ? '' : 's'), ' · ', time(item.updated)),
+            !isRuns && item.kind === 'related_failures' && h('div', {style: {...styles.muted, fontSize: 11}}, 'Matching error evidence. Cause unclassified.'),
+            isRuns && item.gap && h('div', {style: {...styles.muted, color: '#d4ac67', fontSize: 11}}, item.gap));
+        }),
+        h('div', {style: {...styles.row, marginTop: 18}}, h('span', {style: {...styles.muted, fontSize: 11}}, rows.length, ' items on this page · maximum 50'),
+          h('div', {style: {display: 'flex', gap: 8}}, cursor && button('First page', () => {setCursor(''); setSelected(null); setDetail(null);}),
+            page.next_cursor && button('Next page', () => {setCursor(page.next_cursor); setSelected(null); setDetail(null);})))),
+      detail && (isRuns ? Array.isArray(detail.evidence) : Array.isArray(detail.members)) && h('section', {style: styles.card, 'aria-label': 'Native work details'},
+        h('div', {style: styles.row}, h('h2', {style: {fontSize: 18, fontWeight: 500}}, incidentTitle(detail)), button('Close', () => {setSelected(null); setDetail(null);})),
+        badge(detail.waiting ? 'waiting for you' : detail.status || detail.state),
+        h('p', {style: styles.muted}, isRuns ? 'Open the native conversation to read the result and use Hermes worker controls. Reported completion does not verify the result.' : detail.kind === 'human_input' ? 'Answer the pending request in its conversation. Sending a recovery brief does not approve it.' : 'Inspect the evidence together. A recovery brief asks the parent to preserve useful work and check partial effects before continuing.'),
+        h('div', {style: {...styles.row, justifyContent: 'flex-start', margin: '18px 0'}},
+          button('Open conversation', () => act('open', root), disabled || Boolean(detail.deleted)),
+          isRuns && button('Open worker', () => act('open', detail.session_id), disabled),
+          !isRuns && button(acting ? 'Requesting…' : 'Send recovery brief', () => act('request_recovery_review'), disabled || !detail.recovery_available),
+          !isRuns && detail.kind !== 'human_input' && button('Acknowledge', () => act('acknowledge'), disabled || detail.status !== 'open')),
+        !isRuns && !detail.route_known && h('p', {style: {...styles.muted, color: '#d4ac67'}}, 'The origin route was not observed. Recovery delivery is unavailable.'),
+        !isRuns && detail.delivery.map(d => h('p', {key: d.id, style: styles.muted}, label(d.kind), ' · ', label(d.state), ' · ', d.attempts, ' acceptance attempt(s)')),
+        !isRuns && detail.delivery.length > 0 && h('p', {style: {...styles.muted, fontSize: 11}}, 'Accepted means Hermes queued the message. It does not prove the reply was delivered. Unknown sends are not replayed.'),
+        !isRuns && h('div', null, h('h3', {style: {fontSize: 13, fontWeight: 500}}, 'Affected workers'),
+          ...members.slice(0, 50).map(m => h('div', {key: m.session_id, style: {...styles.muted, padding: '8px 0', overflowWrap: 'anywhere'}}, m.session_id, ' · ', label(m.state), m.waiting ? ' · waiting for you' : '')),
+          members.length > 50 && h('p', {style: styles.muted}, 'Showing 50 of ', members.length, ' workers; open the conversation for the complete group.')),
+        h('details', null, h('summary', {style: {cursor: 'pointer', fontSize: 12, padding: '14px 0'}}, 'Observation details'),
+          h('p', {style: {...styles.muted, overflowWrap: 'anywhere'}}, 'Origin: ', root),
+          isRuns ? h('div', null,
+            h('p', {style: styles.muted}, 'Retained ', detail.evidence.length, ' of ', detail.seq, ' events; starts at #', detail.retained_from, '.'),
+            detail.gap && h('p', {style: styles.muted}, detail.gap),
+            ...detail.evidence.map(e => h('div', {key: e.seq, style: {...styles.muted, fontSize: 11, padding: '5px 0'}}, '#', e.seq, ' · ', time(e.at), ' · ', label(e.kind), e.tool ? ' · ' + e.tool : '', e.status ? ' · ' + e.status : '', e.outcome ? ' · ' + e.outcome : '')))
+            : h('p', {style: {...styles.muted, overflowWrap: 'anywhere'}}, 'Incident: ', detail.id, ' · revision ', detail.revision)))),
+    h('p', {style: {...styles.muted, fontSize: 11, marginTop: 24}}, 'Observation uses no model calls. Hermes owns execution, approvals, and completion delivery. A requested recovery review uses your normal model.')
+  );
+}
+
+function Watchdog({ctx}) {
+  const [legacy, setLegacy] = useState(false);
+  return h('div', null,
+    h('div', {style: {...styles.row, maxWidth: 1140, margin: '0 auto', padding: '20px 32px 0', justifyContent: 'flex-end'}},
+      button(legacy ? 'Native recovery inbox' : 'Legacy launcher history', () => setLegacy(v => !v))),
+    legacy ? h(LegacyWatchdog, {ctx}) : h(NativeInbox, {ctx}));
 }
 
 export default {

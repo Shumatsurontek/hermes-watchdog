@@ -11,4 +11,8 @@ def open_store():
     root.chmod(0o700)
     db = plugin_db(PLUGIN_ID)
     (root / "data.db").chmod(0o600)
-    return Store(db)
+    try:
+        return Store(db)
+    except Exception:
+        db.close()
+        raise

@@ -9,6 +9,7 @@ import time
 import uuid
 
 from . import judge as adviser
+from .native import NativeObserver
 from .policy import (
     CONTEXT_BYTES_MAX,
     GOAL_BYTES_MAX,
@@ -25,12 +26,13 @@ from .policy import (
     excerpt,
     retry_reason,
 )
+from .recovery import RecoveryOutbox
 
 log = logging.getLogger(__name__)
 
 
 class Runtime:
-    def __init__(self, ctx, store, *, clock=time.time, tick=TICK_SECONDS, acquire_lock=True):
+    def __init__(self, ctx, store, *, clock=time.time, tick=TICK_SECONDS, acquire_lock=True, start_pump=True):
         self.ctx, self.store, self.clock, self.tick = ctx, store, clock, tick
         self.stop = threading.Event()
         self.lock = threading.RLock()
@@ -40,6 +42,10 @@ class Runtime:
         self.launching = contextvars.ContextVar("watchdog_launch", default=None)
         self.degraded = None
         self.owner_file = None
+        native_enabled = ctx.get_config("observe_native", True)
+        native_notices = ctx.get_config("native_notifications", False)
+        if type(native_enabled) is not bool or type(native_notices) is not bool:
+            raise Rejected("observe_native and native_notifications must be booleans")
         if acquire_lock:
             # Prevent a second host process from declaring this process's workers
             # lost. The file and lock belong only to this plugin's profile data.
@@ -56,6 +62,11 @@ class Runtime:
                 self.owner_file.close()
                 raise Rejected("Watchdog is already active in another host process") from None
         self.store.recover()
+        self.store.native.recover()
+        self.native = NativeObserver(self.store.native, enabled=native_enabled, notices=native_notices)
+        self.outbox = RecoveryOutbox(store, ctx)
+        if start_pump:
+            self.outbox.start()
 
     def identity(self):
         from gateway.session_context import get_session_env
@@ -253,6 +264,22 @@ class Runtime:
         self.store.finish_notices([i["id"] for i in items], accepted)
 
     def observe(self, kind, data):
+        # The legacy launcher keeps its existing ledger and notices. Native
+        # observation must not count the same owned child a second time.
+        child = data.get("session_id") or data.get("child_session_id")
+        with self.lock:
+            legacy = bool(self.launching.get()) if kind == "subagent_start" else child in self.children
+        surface, bound_id, bound_key = "", "", ""
+        if kind == "subagent_start" and not legacy:
+            try:
+                from gateway.session_context import get_session_env
+
+                surface = self.ctx.session_surface()
+                bound_id = get_session_env("HERMES_SESSION_ID", "")
+                bound_key = get_session_env("HERMES_SESSION_KEY", "")
+            except Exception:
+                log.exception("Watchdog could not establish the native origin route")
+        self.native.observe(kind, data, surface=surface, bound_id=bound_id, bound_key=bound_key, legacy=legacy)
         try:
             if kind == "subagent_start":
                 task_id = self.launching.get()
@@ -271,8 +298,10 @@ class Runtime:
                 # Desktop finalization also fires on disconnect or eviction. It
                 # does not prove the durable conversation was deleted.
                 return
+            if kind == "on_session_end":
+                return
             if kind in {"on_session_delete", "on_session_reset"}:
-                parent = data.get("session_id")
+                parent = (data.get("old_session_id") if kind == "on_session_reset" else None) or data.get("session_id")
                 if parent:
                     self.store.delete_parent(parent)
                 return
@@ -287,6 +316,7 @@ class Runtime:
                 "post_api_request": "api_end",
                 "api_request_error": "api_error",
                 "on_human_input_request": "human_input",
+                "on_human_input_resolved": "human_resolved",
                 "subagent_stop": "child_stop",
             }
             item = {"kind": names[kind]}
@@ -327,7 +357,10 @@ class Runtime:
                 result["result_excerpt"] = result["result_excerpt"] or clipped
             result["result_trust"] = "untrusted_worker_output"
             return result
-        return self.store.page(session_key=session, limit=10)
+        result = self.store.page(session_key=session, limit=10)
+        result["native"] = self.store.native.page(root=parent, limit=10)
+        result["native_workers"] = self.store.native.page(root=parent, limit=10, runs=True)
+        return result
 
     def control(self, task_id, action):
         if action == "request_retry":
@@ -343,9 +376,10 @@ class Runtime:
         with self.lock:
             workers = list(self.workers.values())
         end = time.monotonic() + 2
+        pump_closed = self.outbox.close(timeout=max(0, end - time.monotonic()))
         for worker in workers:
             worker.join(timeout=max(0, end - time.monotonic()))
-        if any(t.is_alive() for t in workers):
+        if not pump_closed or any(t.is_alive() for t in workers):
             # Retain the lock/connection until process exit; a blocked host call
             # must not let a newly loaded plugin double-supervise its children.
             log.error("Watchdog unload could not join all monitors; owner lease retained")

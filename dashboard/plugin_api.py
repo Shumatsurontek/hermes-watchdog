@@ -32,15 +32,17 @@ router = APIRouter()
 
 
 def ledger():
-    store = _storage.open_store()
+    store = None
     try:
+        store = _storage.open_store()
         yield store
     except Rejected as exc:
         raise HTTPException(409, str(exc)) from None
     except sqlite3.OperationalError:
         raise HTTPException(503, "Watchdog storage is busy or unavailable") from None
     finally:
-        store.close()
+        if store is not None:
+            store.close()
 
 
 class Action(BaseModel):
@@ -65,3 +67,46 @@ def task(task_id: str, store=Depends(ledger)):
 def action(task_id: str, body: Action, store=Depends(ledger)):
     store.request_cancel(task_id, body.session_key, body.revision, body.idempotency_key)
     return {"task_id": task_id, "action": "cancel_queued"}
+
+
+class IncidentAction(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    action: str = Field(pattern="^(acknowledge|request_recovery_review)$")
+    parent_session_id: str = Field(min_length=1, max_length=256)
+    revision: int = Field(ge=1)
+    idempotency_key: str = Field(min_length=8, max_length=80)
+
+
+@router.get("/incidents")
+def incidents(
+    cursor: str = Query("", max_length=256),
+    limit: int = Query(50, ge=1, le=50),
+    view: str = Query("all", pattern="^(all|related|needs)$"),
+    store=Depends(ledger),
+):
+    return store.native.page(cursor=cursor, limit=limit, view=view)
+
+
+@router.get("/incidents/{incident_id}")
+def incident(incident_id: str, store=Depends(ledger)):
+    return store.native.detail(incident_id)
+
+
+@router.post("/incidents/{incident_id}/actions", status_code=202)
+def incident_action(incident_id: str, body: IncidentAction, store=Depends(ledger)):
+    return store.native.action(incident_id, body.action, body.parent_session_id, body.revision, body.idempotency_key)
+
+
+@router.get("/native-runs")
+def native_runs(
+    cursor: str = Query("", max_length=256),
+    limit: int = Query(50, ge=1, le=50),
+    view: str = Query("all", pattern="^(all|returned)$"),
+    store=Depends(ledger),
+):
+    return store.native.page(cursor=cursor, limit=limit, runs=True, view=view)
+
+
+@router.get("/native-runs/{session_id}")
+def native_run(session_id: str, store=Depends(ledger)):
+    return store.native.run(session_id, evidence=True)

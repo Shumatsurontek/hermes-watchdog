@@ -26,7 +26,7 @@ from .policy import (
     retry_reason,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class EvidenceFull(Rejected):
@@ -49,12 +49,19 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.clock = clock
         self.lock = threading.RLock()
-        self.db.execute("PRAGMA busy_timeout=250")
+        self.db.execute("PRAGMA busy_timeout=50")
+        from .native_store import SCHEMA, NativeLedger
+
         with self.lock, self.db:
             version = self.db.execute("PRAGMA user_version").fetchone()[0]
-            if version not in (0, SCHEMA_VERSION):
+            if version not in (0, 1, SCHEMA_VERSION):
                 raise Rejected(f"Unsupported Watchdog database schema {version}")
-            self.db.executescript("""
+            if version < SCHEMA_VERSION:
+                # executescript otherwise commits implicitly before its first
+                # statement. An explicit transaction makes migration atomic.
+                self.db.executescript(
+                    """
+                BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS sessions (session_key TEXT PRIMARY KEY, count INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS tasks (
                     id TEXT PRIMARY KEY, session_key TEXT NOT NULL, parent_id TEXT NOT NULL,
@@ -68,8 +75,11 @@ class Store:
                     nonce TEXT UNIQUE, created REAL NOT NULL);
                 CREATE INDEX IF NOT EXISTS events_task ON events(task_id, id);
                 CREATE INDEX IF NOT EXISTS tasks_session ON tasks(session_key, created);
-                PRAGMA user_version=1;
-            """)
+            """
+                    + SCHEMA
+                    + "\nPRAGMA user_version=2;\nCOMMIT;"
+                )
+        self.native = NativeLedger(self)
 
     @classmethod
     def local(cls, path, **kwargs):

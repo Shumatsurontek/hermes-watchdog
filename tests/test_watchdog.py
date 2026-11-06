@@ -272,7 +272,7 @@ class RuntimeTests(Fixture):
     def setUp(self):
         super().setUp()
         self.ctx = Context()
-        self.runtime = Runtime(self.ctx, self.store, clock=self.clock, acquire_lock=False)
+        self.runtime = Runtime(self.ctx, self.store, clock=self.clock, acquire_lock=False, start_pump=False)
 
     def test_deadline_cancels_once_then_records_unresolved(self):
         tid = self.running(seconds=10)

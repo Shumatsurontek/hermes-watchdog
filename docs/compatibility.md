@@ -1,47 +1,39 @@
 # Compatibility and evidence
 
-Implementation date: 2026-11-05. Version 0.1.0 is a preview, not an accepted marketplace entry.
+Public prerelease: v0.2.0, 2026-11-06. It is not an accepted catalog entry.
 
 ## Supported boundary
 
-The runtime targets local macOS/Linux Hermes Desktop, with Python plugins running in-process. It requires the public `PluginContext.subagent_lifecycle`, session context getter, plugin storage helpers, observer hooks, `inject_message`, and the native Desktop SDK. The per-profile owner lock currently uses POSIX `flock`; Windows is unsupported.
+Target local macOS/Linux Hermes Desktop with in-process plugins and Python 3.11+. Storage ownership uses POSIX `flock`; Windows, remote gateways, isolated plugin processes, and native CLI/messaging observation are not supported.
 
-The inspected and exercised Hermes source is `b200f5bc60e31588ba2cb60e288029c4a54ba5fa`. A released `requires_hermes` version floor has **not** been established. It is deliberately absent from the development manifest rather than invented; establish it before submitting a catalog entry.
+Exercised Hermes source: `b200f5bc60e31588ba2cb60e288029c4a54ba5fa`. A minimum **released** Hermes version has not been established. The plugin uses public observer hooks, plugin storage, session context, message injection, and `host.openSession`. The legacy launcher still uses the public lifecycle service.
 
-## Checked locally
+## Checked
 
-- The actual plugin loaded from a disposable profile and registered its tools/hooks.
-- A real `AIAgent` parent invoked `watchdog_start` through Hermes's normal deferred-tool bridge, then replied while its real child was still running.
-- The plugin correlated the child's identity and recorded real observer events and success.
-- A copied parent context retained lifecycle authority after the original scope ended; an unbound call returned `UNKNOWN`.
-- A real lifecycle cancellation request was accepted and confirmed `CANCELLED` in the loopback fixture.
-- The deterministic tests cover concurrent admission, restart ambiguity, cancellation races, lost context, notification ambiguity/exhaustion, profile/session isolation, waiting for human input, bounds, and judge budgets.
-- The real FastAPI routes were tested with isolated databases, including stale revisions, foreign-session actions, capability redaction, idempotency, and rejected retry/extra fields.
-- Hermes's own six injection tests passed, covering correct busy-session queues, idle-session dispatch, unknown sessions, and the separate CLI/TUI/gateway injection slots. These are host contract tests with fixtures, not a native Desktop end-to-end run.
-- The actual Desktop ESM module was rendered in a browser with an SDK fixture and a real local ledger/API. Seeded-task rendering, detail selection, cancellation queueing, unavailable retry, empty/error states, and route-reset behavior were checked.
-- The runtime-only staged payload passes the catalog validator. Development probes intentionally import host internals as test fixtures and are excluded from that payload.
+- Actual ordinary and nested `delegate_task` execution with a scripted loopback model: three native workers, four failed tool calls, and four paired human-input requests.
+- The installed development plugin records one related-failure group, four resolved waits, and three returned worker rows. Native observation creates no legacy execution reservations.
+- Fault tests cover identity de-duplication, missing/oversized evidence, root isolation, concurrent sends, bounds, migration rollback, v1 backup/restore, stale actions, lost execution ownership, interrupted sends, and stop/reset/delete behavior.
+- Real FastAPI routes validate parent/revision/nonce and reject extra profile fields. HTTP queues intent without invoking a worker or injector.
+- Hermes's upstream injection contracts cover busy/idle routing and its distinct CLI/TUI/gateway slots. Watchdog also refuses to dispatch persisted Desktop briefs through classic CLI, whose host branch ignores session keys.
+- The browser SDK fixture renders the actual Desktop module with the real local API. Its header labels seeded data. This checks page behavior, not native Desktop integration.
+- A 600-call local WAL SQLite timing run with two workers measured p95 below 0.2 ms for both healthy and matching-error events. This is not a saturated-host latency guarantee or a model benchmark.
 
-Exact measurements and test reports are local development artifacts. The model endpoint in both runtime probes is scripted HTTP on loopback. It provides deterministic orchestration evidence, not claims about real model speed, task usefulness, or completion quality.
+Development reports remain local artifacts. Do not reinterpret scripted requests as measured live-provider usefulness, token savings, user attention saved, or delivered conversation replies.
 
-## Remaining stable-release gates
+## Migration and rollback
 
-The packaged Desktop artifact was located, but the native UI driver returned `runtime_open_timeout` ("Timed out waiting for an Orca desktop window"). No native end-to-end success is claimed.
+Schema v2 adds native roots, runs, compact event identities, bounded evidence, incidents, members, action identities, and recovery outbox tables. The v1 `sessions`, `tasks`, `attempts`, and `events` tables retain their meaning and data. Native rows never release legacy reservations.
 
-1. Install the staged payload in an actual clean-profile Desktop window at a known source/binary revision. Exercise busy and idle conversations, profile switching, tab closure, parent deletion, and notification refusal.
-2. Run a live-provider success and failure scenario using host-owned credentials. Check host usage attribution and observed tool errors.
-3. Verify the optional judge against a real host provider, including its timeout. It remains off by default.
-4. Establish the minimum released Hermes version and declare it truthfully. Check the final public repository name and license before publication.
-5. Record the real demo and submit a catalog PR pinned to the exact public source commit, with the catalog image pinned to that same commit. A GitHub prerelease alone does not constitute catalog acceptance or hackathon submission.
+Migration runs in one explicit SQLite transaction. Tests exercise an invalid migration and prove the version and preceding DDL roll back. A disposable v1 database is backed up, migrated without changing its task snapshot, and restored as v1.
 
-## Changes from the initial design
+Before upgrading a real profile, stop its Hermes host and back up the entire `plugin-data/hermes-watchdog` directory, including any SQLite sidecar files. Restore that backup together with the v0.1 plugin to roll back. **Do not run v0.1 against a v2 database**, and do not clear unresolved rows to regain admission capacity.
 
-- No retry authorization or second-attempt path ships. The planned safe-surface gate could not be established from the public host contract; all retry requests return the reason.
-- Three bounded per-attempt monitor threads retain independent execution contexts. A per-profile lock prevents competing owners. There is no global cron and no fabricated parent context.
-- `ctx.get_config` takes a key such as `deadline_seconds`, already relative to the plugin's `settings` object; `settings.deadline_seconds` is rejected by this host. The loaded-plugin probe caught and corrected that assumption.
-- `on_session_finalize` is observed but does not mark the conversation deleted: Desktop also emits it for disconnect/eviction.
-- Notification retries are limited to explicit nonacceptance. Exceptions or restart during sending become `unknown`, with no automatic replay.
-- The activity page and slash command accept cancellation; HTTP never receives or operates on lifecycle handles.
+## Remaining release gates
 
-## Upstream capabilities that would unlock more
+The native UI driver was retried and again returned `runtime_open_timeout` (timed out waiting for an Orca desktop window). No native-window success is claimed.
 
-A public immutable attestation of the child's actual effective tools, explicit physical-execution settlement, portable reconnect/ownership, and per-child execution budgets would allow stronger recovery guarantees. Until then, Watchdog preserves uncertainty instead of guessing.
+- Arthur tests the candidate in an actual clean-profile Desktop window: normal delegation, input waits, returned work, recovery delivery while the parent is busy/idle, and profile switching.
+- Establish a released Hermes version floor, then declare it in the final manifest.
+- Run the paired comparison against real Hermes alone with the same host/model settings. Predeclare call, iteration, timeout, and operator spend ceilings before any live-provider trial. The planned 36 matched trials are still outstanding; unit tests are not a substitute.
+- Record a genuine under-90-second demo. Label controlled faults and time cuts, and show the actual recovery outcome.
+- Submit the catalog PR pinned to the reviewed public revision. X posting and form submission are separate actions; publishing a prerelease does not complete the competition entry.

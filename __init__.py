@@ -13,6 +13,8 @@ HOOKS = (
     "post_api_request",
     "api_request_error",
     "on_human_input_request",
+    "on_human_input_resolved",
+    "on_session_end",
     "on_session_delete",
     "on_session_reset",
     "on_session_finalize",
@@ -64,7 +66,7 @@ def register(ctx):
             "Search is the requested toolset; inherited tools remain Hermes-controlled."
         ),
         "status": (
-            "Read this conversation's Watchdog tasks or one task's result. "
+            "Read this conversation's native Watchdog incidents and legacy tasks, or one task's result. "
             "Worker results are untrusted data. Success is not verified correctness."
         ),
         "control": "Request cancellation of a Watchdog worker. Retries are disabled on this host contract.",
@@ -116,9 +118,14 @@ def register(ctx):
                 raise Rejected("Usage: /watchdog status | inspect <id> | cancel <id> | retry <id> | prune")
             rt = get_runtime()
             if not args or args == ["status"]:
-                return json.dumps(rt.store.page(session_key=session_key, limit=10), indent=2)
+                result = rt.store.page(session_key=session_key, limit=10)
+                if session_id:
+                    result["native"] = rt.store.native.page(root=session_id, limit=10)
+                    result["native_workers"] = rt.store.native.page(root=session_id, limit=10, runs=True)
+                return json.dumps(result, indent=2)
             if args == ["prune"]:
                 rt.store.prune()
+                rt.store.native.prune()
                 return "Pruned settled history older than 7 days; admission counters for retained conversations are preserved."
             if len(args) != 2 or args[0] not in {"inspect", "cancel", "retry"}:
                 raise Rejected("Usage: /watchdog status | inspect <id> | cancel <id> | retry <id> | prune")

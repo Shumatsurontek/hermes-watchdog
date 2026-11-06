@@ -9,6 +9,8 @@ const ctx = {
     window.watchdogHarness.requests.push({ path, ...opts });
     if (window.watchdogHarness.fail) throw new Error('Fixture: backend unavailable');
     if (window.watchdogHarness.empty && path.startsWith('/tasks?')) return {tasks: [], next_cursor: null};
+    if (window.watchdogHarness.empty && path.startsWith('/incidents?')) return {incidents: [], next_cursor: null, health: {}};
+    if (window.watchdogHarness.empty && path.startsWith('/native-runs?')) return {runs: [], next_cursor: null, health: {}};
     const response = await fetch('/api/plugins/hermes-watchdog' + path, {method: opts.method || 'GET', headers: {'Content-Type': 'application/json'}, body: opts.body ? JSON.stringify(opts.body) : undefined});
     const body = await response.json();
     if (!response.ok) throw new Error(body.detail || 'Request failed');

@@ -1,38 +1,36 @@
-# Local acceptance and submission
+# Prerelease acceptance and submission
 
-## Native acceptance sequence
+## Local Desktop acceptance
 
-Use a disposable Desktop profile with the same Hermes revision as the test binary. Enable the agent plugin, its Desktop contribution, notification permission, and the required parent toolsets. Keep the judge off for the first run.
+Use a disposable profile and verify its Desktop binary matches the tested Hermes revision. Enable the Python plugin and Desktop contribution. Default native notices and the judge remain off.
 
-1. Start a supervised research task. Confirm the parent replies before the task finishes and another chat message works while it runs.
-2. Inspect its task row. Confirm child observations and final result appear, and the completion returns to the exact originating conversation.
-3. Repeat while that conversation is busy. Confirm the notification queues there, without going to another active tab.
-4. Start a slow task with a short deadline. Confirm one cancellation request, then either an authoritative terminal result or an unresolved state that retains its slot.
-5. Close and reopen the tab. Confirm this alone never marks its task deleted. Explicitly delete another parent and verify cancellation is requested and further notices are suppressed.
-6. Disable notification permission. Confirm false acceptance is attempted at most three times, then shown as failed, with the result still available.
-7. Switch profiles and gateway routes while the activity page is loading. Confirm old data clears and stale actions cannot mutate the newly selected profile.
-8. Restart with an active task. Confirm history survives, control is unavailable, and no replacement worker launches.
+1. Ask normal Hermes to delegate independent read-only release-preparation tasks. Do not use `watchdog_start`. Confirm the workers appear in Watchdog and the parent remains usable.
+2. Cause a labelled controlled matching failure in two workers while a third returns useful local work. Confirm one related group and a separate returned worker. Verify that Hermes owns any retries and breaker behavior.
+3. Trigger a real human-input request. Confirm an unrelated tool call cannot clear it; answer in the original conversation and confirm the matching wait resolves.
+4. Open the incident's conversation. Send one recovery brief, click again rapidly, and verify only one request reaches the correct parent. Repeat once with a busy parent and once with an idle parent. Record acceptance and observed delivery separately.
+5. Switch profiles/gateways during reads and actions. Confirm stale data clears and an old action cannot target the new profile.
+6. Stop, reset, or delete an origin before a queued send. Confirm it is withdrawn. Close a tab without deleting it and confirm that alone does not withdraw it. A send already entered is not recallable.
+7. Restart with unfinished work and an ambiguous send. Confirm execution/delivery uncertainty persists and no native worker or ambiguous request is replayed.
+8. Open legacy history, launch one optional search worker, inspect its result, and request cancellation of another. Confirm v1 reservations and retry refusal remain intact.
 
-Do not use the preview harness or manually edited state as evidence that native recovery works.
+The scripted host probe and seeded browser harness cannot satisfy the native/live-provider checks above.
 
-## Demo storyboard — under 90 seconds
+## Evidence and comparison
 
-The intended flagship is the [native shared-failure scenario](native-integration.md). It is a proposed integration and must be implemented and tested before recording it. The [customer-briefing scenario](use-case.md) remains a smoke test for the current build, with a launch prompt and detailed 85-second storyboard. Neither document is evidence of a recorded live-provider run.
+The proposed paired comparison is six scenarios with three repetitions in each condition: Hermes alone and the same Hermes plus Watchdog. Healthy slow work, transient failure followed by success, cross-worker matching failures, human-input wait, returned result during a busy parent turn, and restart with ambiguous delivery comprise the scenario set.
 
-- 0–12s: Ask Hermes to start supervised research and show its immediate reply.
-- 12–25s: Ask a separate question while the task runs; open Watchdog to show the live worker.
-- 25–50s: Show an actual slow/failing worker, the observed evidence, and cancellation being requested. A visibly labelled short demo deadline is fine.
-- 50–70s: Show the real terminal or unresolved outcome and the originating chat notification. Explain that uncertain work cannot be retried.
-- 70–85s: Open the retained result/action history and show how to install the plugin.
+Record actual provider/model/temperature, iteration/call/timeout ceilings, and the operator's spend ceiling before live execution. Measure completed work, missed outcomes, repeated dependency calls, false grouping/interventions, human decisions, acceptance versus delivered messages, and host usage. Do not invent a baseline without Hermes's existing safeguards. Do not claim saved connector calls from a breaker that belongs to Hermes.
 
-Keep real wall-clock waits or disclose any time compression. Do not claim a cancellation request killed a tool, a returned answer was verified, or notification acceptance guarantees delivery.
+The candidate's feature claim is native evidence grouping and durable scoped recovery intent. A measured reduction in repeated investigations remains a release/demo qualification gate.
 
-## Catalog preparation
+## Runtime payload
 
-The runtime payload consists of `plugin.yaml`, `__init__.py`, `watchdog/`, `dashboard/`, `desktop/`, `assets/`, the README, license, and public docs. `scripts/stage.py` creates an explicit allowlist copy and file hashes; tests, private plans, caches, and development probes stay outside it.
+`scripts/stage.py` stages an explicit runtime allowlist and hashes. Tests, development probes, private plans, caches, and internal host imports are excluded. Validate the exact stage with `hermes plugins validate <stage> --install-deps` and inspect warnings. Validator-generated caches are not release files; package only paths in the stage manifest.
 
-`assets/catalog-banner.png` is the 2:1 promotional image. The catalog entry's `image` field must use its public GitHub raw URL pinned to the same commit as the code. Do not put this generated artwork in `screenshots`; that gallery is for genuine product captures. The current `docs/preview.jpg` is visibly labelled as a fixture-based browser harness and does not demonstrate native acceptance. [Artwork prompt](artwork-prompt.md) records the generation method and source inspiration.
+`assets/catalog-banner.png` remains the 2:1 promotional image. Pin its public raw URL to the same eventual 40-character source commit used in the catalog. Generated banner art is not a product screenshot. Browser fixture captures are clearly labelled and do not attest native acceptance.
 
-Before publication, decide the repository/license, establish a released Hermes version floor, and run `hermes plugins validate <staged-directory> --install-deps`. Inspect warnings. Commit only after local acceptance and explicit approval. The catalog entry must pin the exact public repository commit with a full 40-character SHA and quote the plugin version.
+The v0.2.0 prerelease is published at https://github.com/Shumatsurontek/hermes-watchdog/releases/tag/v0.2.0. Prepare the catalog PR against its exact reviewed source commit after completing the native acceptance gates. Do not use a placeholder SHA in a submitted entry.
 
-The hackathon announcement supplied for this project requires the catalog PR, a working demo posted on X tagging `@NousResearch`, and both links in the submission form. None of those external actions has been performed.
+## Competition assets
+
+Use the [85-second storyboard](native-integration.md). The supplied announcement requires a catalog PR, a working X demo tagging `@NousResearch`, and both links in the entry form. No catalog submission, X post, or form submission has been performed.
