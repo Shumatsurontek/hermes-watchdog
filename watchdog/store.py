@@ -26,7 +26,7 @@ from .policy import (
     retry_reason,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class EvidenceFull(Rejected):
@@ -54,7 +54,7 @@ class Store:
 
         with self.lock, self.db:
             version = self.db.execute("PRAGMA user_version").fetchone()[0]
-            if version not in (0, 1, SCHEMA_VERSION):
+            if version not in (0, 1, 2, SCHEMA_VERSION):
                 raise Rejected(f"Unsupported Watchdog database schema {version}")
             if version < SCHEMA_VERSION:
                 # executescript otherwise commits implicitly before its first
@@ -77,7 +77,9 @@ class Store:
                 CREATE INDEX IF NOT EXISTS tasks_session ON tasks(session_key, created);
             """
                     + SCHEMA
-                    + "\nPRAGMA user_version=2;\nCOMMIT;"
+                    + "\nALTER TABLE native_runs ADD COLUMN label TEXT NOT NULL DEFAULT '';"
+                    + "\nALTER TABLE native_runs ADD COLUMN label_excerpt INTEGER NOT NULL DEFAULT 0;"
+                    + "\nPRAGMA user_version=3;\nCOMMIT;"
                 )
         self.native = NativeLedger(self)
 

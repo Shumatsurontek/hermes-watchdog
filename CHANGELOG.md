@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — typed conversation view
+
+- Group native workers by conversation, with task-title excerpts and directly accessible results.
+- Put the next action first; collapse secondary incidents, IDs and evidence. Use real Hermes theme tokens.
+- Keep returned work with observed errors visibly distinct from verified success.
+- Generate strict TypeScript types and runtime validators from bounded Python response models.
+- Add atomic schema-v3 migration; retain existing observations, ownership and outbox semantics.
+- Add a real release-readiness review prompt, migration and frontend build instructions.
+
 ## 0.2.0 — preview
 
 Normal Desktop delegates now appear automatically in a recovery inbox. Related failures are grouped within their root conversation; paired human-input waits and returned workers remain visible. A user can open the originating conversation and send one durable recovery brief without starting a replacement worker.

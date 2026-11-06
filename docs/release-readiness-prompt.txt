@@ -1,0 +1,16 @@
+Audite ce checkout de hermes-watchdog avant sa prochaine release. Je veux une décision fondée sur des preuves : publiable, bloqué, ou vérifications manquantes.
+
+Utilise trois delegates natifs en parallèle, dans une seule délégation. Chaque worker a au maximum 8 appels d’outils ; s’il manque un accès ou une dépendance, il le signale précisément et s’arrête, sans boucle de tentatives. Ces limites sont des consignes de travail, pas un budget imposé par Watchdog.
+
+1. Première ligne du goal : « Release readiness · Tests & build »
+Trouve les commandes de validation dans README.md et docs/typed-ui.md. Vérifie les dépendances disponibles, puis exécute les tests et le build adaptés. Rapporte les commandes, résultats, tests ignorés et limites. N’installe aucune dépendance et ne change aucune configuration.
+
+2. Première ligne du goal : « Release readiness · Recovery audit »
+Inspecte le diff local et les chemins de reprise, d’idempotence, de changement de profil et de migration SQLite. Cherche des bugs concrets : double reprise, action envoyée à la mauvaise conversation, résultat annoncé réussi malgré une erreur, perte de données à la migration. Donne fichier, ligne, scénario de reproduction et gravité. N’invente pas de problème si tu n’en trouves pas.
+
+3. Première ligne du goal : « Release readiness · Package & rollback »
+Inspecte plugin.yaml, scripts/stage.py, la procédure d’installation, les exemples et les contrats générés. Vérifie que le paquet contient ce dont il a besoin et que la procédure de rollback tient compte du schéma SQLite. Vérifie la cohérence des promesses du README avec le code. Donne les preuves et les points non vérifiés.
+
+Ne modifie pas le code, ne commit pas, ne push pas et ne publie rien. Tu peux écrire les rapports de test dans /tmp. Les workers doivent rendre des conclusions courtes avec leurs sources locales.
+
+Pendant leur travail, reste disponible dans la conversation. À la fin, rédige une décision de release dans la conversation : preuves acquises, blocages, risques restants et prochaine action. Conserve les conclusions utilisables si un worker est bloqué. Une tâche qui a répondu avec des erreurs ne valide pas sa partie de l’audit.

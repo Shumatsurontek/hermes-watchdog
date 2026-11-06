@@ -75,7 +75,10 @@ class NativeLedger:
             if session:
                 self.db.execute("UPDATE native_runs SET gap=? WHERE session_id=?", (reason, session))
 
-    def start(self, parent, child, route, *, nested=False):
+    def start(self, parent, child, route, *, nested=False, goal: object = None):
+        from .presentation import task_label
+
+        label, label_excerpt = task_label(goal)
         identity(parent)
         identity(child)
         bounded_text(route, "origin route", 256, empty=True)
@@ -114,8 +117,18 @@ class NativeLedger:
                     raise Rejected("Conflicting native origin route")
                 self.db.execute("UPDATE native_roots SET route=?,route_active=1 WHERE root_id=?", (route, root))
             self.db.execute(
-                "INSERT INTO native_runs(session_id,parent_id,root_id,state,created,updated,gap) VALUES(?,?,?,'active',?,?,?)",
-                (child, parent, root, now, now, "Missing ancestor identity" if nested and not ancestor else ""),
+                "INSERT INTO native_runs(session_id,parent_id,root_id,state,created,updated,gap,label,label_excerpt) "
+                "VALUES(?,?,?,'active',?,?,?,?,?)",
+                (
+                    child,
+                    parent,
+                    root,
+                    now,
+                    now,
+                    "Missing ancestor identity" if nested and not ancestor else "",
+                    label,
+                    label_excerpt,
+                ),
             )
 
     def has_run(self, session):

@@ -36,7 +36,9 @@ class NativeObserver:
                 if surface != "desktop" and not self.ledger.has_run(parent):
                     return
                 route = bound_key if surface == "desktop" and bound_id == parent else ""
-                self.ledger.start(parent, session, route, nested=bool(data.get("parent_subagent_id")))
+                self.ledger.start(
+                    parent, session, route, nested=bool(data.get("parent_subagent_id")), goal=data.get("child_goal")
+                )
             elif kind in EVENTS and session and self.ledger.has_run(session):
                 key, event = normalize(kind, data)
                 self.ledger.record(

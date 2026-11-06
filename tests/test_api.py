@@ -130,3 +130,130 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/incidents?limit=51").status_code, 422)
         self.assertEqual(self.client.get("/native-runs?view=needs").status_code, 422)
         self.assertEqual(self.client.get("/incidents/unknown").status_code, 409)
+
+    def test_work_groups_real_tasks_and_exposes_evidence_without_raw_errors(self):
+        from watchdog.native import NativeObserver
+
+        observer = NativeObserver(self.store.native)
+        for child, title in (("ci", "Release readiness · Tests"), ("review", "Release readiness · Recovery audit")):
+            observer.observe(
+                "subagent_start",
+                {
+                    "parent_session_id": "release",
+                    "child_session_id": child,
+                    "child_goal": title + "\nUse the repository evidence; token=DO_NOT_PERSIST",
+                },
+                surface="desktop",
+                bound_id="release",
+                bound_key="private-route",
+            )
+        for child, call in (("ci", "1"), ("ci", "2"), ("review", "3")):
+            observer.observe(
+                "post_tool_call",
+                {
+                    "session_id": child,
+                    "turn_id": "t",
+                    "tool_call_id": call,
+                    "tool_name": "read_file",
+                    "status": "error",
+                    "error_message": "PRIVATE_ERROR",
+                },
+            )
+        observer.observe(
+            "post_tool_call",
+            {"session_id": "ci", "turn_id": "t", "tool_call_id": "4", "tool_name": "terminal", "status": "ok"},
+        )
+        observer.observe(
+            "subagent_stop", {"child_session_id": "ci", "parent_session_id": "release", "child_status": "completed"}
+        )
+        response = self.client.get("/work")
+        self.assertEqual(response.status_code, 200)
+        page = response.json()
+        mission = page["missions"][0]
+        self.assertEqual(mission["counts"], {"workers": 2, "active": 1, "waiting": 0, "returned": 1, "attention": 1})
+        worker = next(w for w in mission["workers"] if w["session_id"] == "ci")
+        self.assertEqual(worker["label"], "Release readiness · Tests")
+        self.assertTrue(worker["label_excerpt"])
+        self.assertEqual(worker["state"], "returned")
+        self.assertEqual(worker["observed_errors"], 2)
+        # A later successful tool must not be blamed for the earlier matching errors.
+        self.assertEqual(mission["incidents"][0]["tools"], ["read_file"])
+        for secret in ("DO_NOT_PERSIST", "PRIVATE_ERROR", "private-route"):
+            self.assertNotIn(secret, response.text)
+        self.assertNotIn("evidence", worker)
+        detail = self.client.get("/work/runs/ci").json()
+        self.assertEqual(len(detail["evidence"]), 4)
+        self.assertEqual(detail["worker"]["session_id"], "ci")
+        # The generated frontend schema must stay in lockstep with Python.
+        import json
+
+        schema_path = Path(__file__).resolve().parents[1] / "desktop/generated/WorkPage.schema.json"
+        expected = self.module._views.WorkPage.model_json_schema()
+        expected["$id"] = "WorkPage"
+        self.assertEqual(json.loads(schema_path.read_text()), expected)
+
+    def test_work_pagination_has_exact_totals_and_no_silent_loss(self):
+        for i in range(11):
+            self.store.native.start(f"root-{i}", f"child-{i}", f"route-{i}")
+        first = self.client.get("/work").json()
+        second = self.client.get("/work?cursor=10").json()
+        self.assertEqual((first["total_missions"], len(first["missions"]), first["next_cursor"]), (11, 10, 10))
+        self.assertEqual((len(second["missions"]), second["next_cursor"]), (1, None))
+        ids = {m["root_id"] for m in first["missions"] + second["missions"]}
+        self.assertEqual(len(ids), 11)
+        self.assertEqual(self.client.get("/work?cursor=-1").status_code, 422)
+        self.assertEqual(self.client.get("/work?cursor=257").status_code, 422)
+        self.assertEqual(self.client.get("/work/runs/not-in-profile").status_code, 409)
+
+    def test_typed_history_preserves_cancellation_and_optional_results(self):
+        response = self.client.get("/history")
+        self.assertEqual(response.status_code, 200)
+        task = response.json()["tasks"][0]
+        self.assertEqual(task["goal"], "test task")
+        self.assertTrue(task["can_cancel"])
+        self.assertNotIn("PRIVATE_CAPABILITY", response.text)
+
+    def test_notice_outbox_is_valid_in_work_contract(self):
+        from watchdog.native import NativeObserver
+
+        self.store.native.start("root", "waiting", "route")
+        observer = NativeObserver(self.store.native, notices=True)
+        observer.observe(
+            "on_human_input_request", {"session_id": "waiting", "request_id": "approval", "kind": "approval"}
+        )
+        response = self.client.get("/work")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["missions"][0]["incidents"][0]["delivery"][0]["kind"], "opening")
+
+    def test_reloading_updated_install_does_not_reuse_old_backend_modules(self):
+        import shutil
+
+        root = Path(__file__).resolve().parents[1]
+        install = Path(self.tmp.name) / "install"
+        shutil.copytree(root / "watchdog", install / "watchdog", ignore=shutil.ignore_patterns("__pycache__"))
+        (install / "dashboard").mkdir()
+        shutil.copyfile(root / "dashboard/plugin_api.py", install / "dashboard/plugin_api.py")
+
+        def load_backend():
+            spec = importlib.util.spec_from_file_location("reload_test", install / "dashboard/plugin_api.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+        first = load_backend()
+        # Keep a first-generation class alive just like an in-flight API request.
+        old = first._storage.Store.local(Path(self.tmp.name) / "old.db")
+        goal = "Review the actual release evidence " * 10
+        old.native.start("root", "old", "route", goal=goal)
+        source = install / "watchdog/presentation.py"
+        source.write_text(source.read_text().replace("LABEL_CHARS_MAX = 160", "LABEL_CHARS_MAX = 40"))
+        second = load_backend()
+        new = second._storage.Store.local(Path(self.tmp.name) / "new.db")
+        try:
+            new.native.start("root", "new", "route", goal=goal)
+            self.assertEqual(len(old.native.run("old")["label"]), 160)
+            self.assertEqual(len(new.native.run("new")["label"]), 40)
+            self.assertIsNot(first._storage.Store, second._storage.Store)
+        finally:
+            old.close()
+            new.close()

@@ -7,6 +7,8 @@ const ctx = {
   registerMany(contributions) { root.render(contributions.find(c => c.area === 'routes').render()); },
   async rest(path, opts = {}) {
     window.watchdogHarness.requests.push({ path, ...opts });
+    if (window.watchdogHarness.malformed && path.startsWith('/work?')) return {version: 1, missions: [{unexpected: true}]};
+    if (window.watchdogHarness.empty && path.startsWith('/work?')) return {version: 1, missions: [], total_missions: 0, next_cursor: null, health: {}};
     if (window.watchdogHarness.fail) throw new Error('Fixture: backend unavailable');
     if (window.watchdogHarness.empty && path.startsWith('/tasks?')) return {tasks: [], next_cursor: null};
     if (window.watchdogHarness.empty && path.startsWith('/incidents?')) return {incidents: [], next_cursor: null, health: {}};

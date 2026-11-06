@@ -1,0 +1,358 @@
+{
+  "$defs": {
+    "Counts": {
+      "additionalProperties": false,
+      "properties": {
+        "workers": {
+          "title": "Workers",
+          "type": "integer"
+        },
+        "active": {
+          "title": "Active",
+          "type": "integer"
+        },
+        "waiting": {
+          "title": "Waiting",
+          "type": "integer"
+        },
+        "returned": {
+          "title": "Returned",
+          "type": "integer"
+        },
+        "attention": {
+          "title": "Attention",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "workers",
+        "active",
+        "waiting",
+        "returned",
+        "attention"
+      ],
+      "title": "Counts",
+      "type": "object"
+    },
+    "Delivery": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "recovery",
+            "opening"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "sending",
+            "accepted",
+            "failed",
+            "unknown",
+            "withdrawn"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "attempts": {
+          "title": "Attempts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "state",
+        "attempts"
+      ],
+      "title": "Delivery",
+      "type": "object"
+    },
+    "Incident": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 256,
+          "title": "Id",
+          "type": "string"
+        },
+        "root_id": {
+          "maxLength": 256,
+          "title": "Root Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "human_input",
+            "related_failures",
+            "worker_failed",
+            "worker_interrupted"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "acknowledged",
+            "follow_up_requested",
+            "resolved",
+            "withdrawn",
+            "grouped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "updated": {
+          "title": "Updated",
+          "type": "number"
+        },
+        "recovery_available": {
+          "title": "Recovery Available",
+          "type": "boolean"
+        },
+        "member_ids": {
+          "items": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Member Ids",
+          "type": "array"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Tools",
+          "type": "array"
+        },
+        "delivery": {
+          "items": {
+            "$ref": "#/$defs/Delivery"
+          },
+          "maxItems": 3,
+          "title": "Delivery",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "root_id",
+        "kind",
+        "status",
+        "revision",
+        "updated",
+        "recovery_available",
+        "member_ids",
+        "tools",
+        "delivery"
+      ],
+      "title": "Incident",
+      "type": "object"
+    },
+    "Mission": {
+      "additionalProperties": false,
+      "properties": {
+        "root_id": {
+          "maxLength": 256,
+          "title": "Root Id",
+          "type": "string"
+        },
+        "created": {
+          "title": "Created",
+          "type": "number"
+        },
+        "updated": {
+          "title": "Updated",
+          "type": "number"
+        },
+        "deleted": {
+          "title": "Deleted",
+          "type": "boolean"
+        },
+        "route_available": {
+          "title": "Route Available",
+          "type": "boolean"
+        },
+        "counts": {
+          "$ref": "#/$defs/Counts"
+        },
+        "workers": {
+          "items": {
+            "$ref": "#/$defs/Worker"
+          },
+          "maxItems": 50,
+          "title": "Workers",
+          "type": "array"
+        },
+        "incidents": {
+          "items": {
+            "$ref": "#/$defs/Incident"
+          },
+          "maxItems": 50,
+          "title": "Incidents",
+          "type": "array"
+        },
+        "incident_count": {
+          "title": "Incident Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "root_id",
+        "created",
+        "updated",
+        "deleted",
+        "route_available",
+        "counts",
+        "workers",
+        "incidents",
+        "incident_count"
+      ],
+      "title": "Mission",
+      "type": "object"
+    },
+    "Worker": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "maxLength": 256,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "maxLength": 256,
+          "title": "Parent Id",
+          "type": "string"
+        },
+        "root_id": {
+          "maxLength": 256,
+          "title": "Root Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 160,
+          "title": "Label",
+          "type": "string"
+        },
+        "label_excerpt": {
+          "title": "Label Excerpt",
+          "type": "boolean"
+        },
+        "state": {
+          "enum": [
+            "active",
+            "returned",
+            "failed",
+            "interrupted",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "waiting": {
+          "title": "Waiting",
+          "type": "boolean"
+        },
+        "updated": {
+          "title": "Updated",
+          "type": "number"
+        },
+        "gap": {
+          "maxLength": 4096,
+          "title": "Gap",
+          "type": "string"
+        },
+        "observed_errors": {
+          "title": "Observed Errors",
+          "type": "integer"
+        },
+        "last_tool": {
+          "title": "Last Tool",
+          "type": "string"
+        },
+        "event_count": {
+          "title": "Event Count",
+          "type": "integer"
+        },
+        "retained_from": {
+          "title": "Retained From",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id",
+        "parent_id",
+        "root_id",
+        "label",
+        "label_excerpt",
+        "state",
+        "waiting",
+        "updated",
+        "gap",
+        "observed_errors",
+        "last_tool",
+        "event_count",
+        "retained_from"
+      ],
+      "title": "Worker",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "missions": {
+      "items": {
+        "$ref": "#/$defs/Mission"
+      },
+      "maxItems": 10,
+      "title": "Missions",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Cursor"
+    },
+    "total_missions": {
+      "title": "Total Missions",
+      "type": "integer"
+    },
+    "health": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Health",
+      "type": "object"
+    }
+  },
+  "required": [
+    "missions",
+    "next_cursor",
+    "total_missions",
+    "health"
+  ],
+  "title": "WorkPage",
+  "type": "object",
+  "$id": "WorkPage"
+}

@@ -8,11 +8,15 @@ Watchdog gives normal Hermes delegates a recovery inbox. It groups matching fail
 
 **v0.2.0 prerelease.** Tested against Hermes source `b200f5bc60e31588ba2cb60e288029c4a54ba5fa`; native Desktop acceptance and a live-provider comparison remain pending. [Evidence and compatibility](docs/compatibility.md).
 
+## Local development candidate
+
+The working tree now includes a quieter conversation view: task names, returned work, a focused recovery action, and collapsed technical evidence. The frontend is TypeScript strict; Python response schemas generate its types and runtime validators. This is not yet in the published v0.2.0 archive. See [typed UI and migration notes](docs/typed-ui.md).
+
 ## A concrete use case
 
-Ask Hermes to prepare a release: investigate failing CI, find release blockers, and draft a rollout checklist from local documentation. It delegates using its normal tools and model routing.
+Use Hermes to audit this repository before release: tests/build, recovery correctness, and package/rollback, in parallel. The output is a release decision supported by evidence, even if one worker is blocked. [Copy the concrete prompt](docs/release-readiness-prompt.txt) and follow the [real-use-case demo](docs/release-readiness.md).
 
-Two workers encounter matching connector errors. The documentation worker returns useful work. Watchdog shows **one related-failure group**, the returned worker, and any separate human-input request. You open the original conversation and choose **Send recovery brief**. The brief identifies affected and returned workers, asks Hermes to inspect current state and partial effects, and preserves its normal approvals.
+If two workers encounter matching tool errors while another returns useful work, Watchdog groups those failures and keeps the result visible alongside any separate human-input request. In the development UI, choose **Ask Hermes to recover**. The brief identifies affected and returned workers, asks Hermes to inspect current state and partial effects, and preserves its normal approvals.
 
 Watchdog does not diagnose expired credentials from a generic error or replay failed writes. Hermes already owns connector retries, circuit breakers, delegation, and completion delivery. [Detailed scenario and demo script](docs/native-integration.md).
 
@@ -105,7 +109,7 @@ A restart marks unfinished native execution **unknown** and interrupted sends **
 
 Profile-local state lives in `plugin-data/hermes-watchdog/data.db`, outside the installation directory. Schema v2 adds native tables without changing the v1 task tables. Back up the database with the host stopped before upgrading; v0.1 cannot open a v2 database. [Migration and rollback](docs/compatibility.md).
 
-Native records store session relationships, tool names, status metadata, and error hashes. They do not store commands, arguments, prompts, full results, error text, or credentials. Open the native conversation to inspect source evidence. Worker “returned” means a reported agent outcome, not verified correctness or proof every underlying tool thread stopped.
+Native records store session relationships, tool names, status metadata and error hashes. The local schema-v3 candidate also stores a bounded first-line task-title excerpt, with common secret shapes filtered; arbitrary task prose can still be sensitive. It does not store full goals, commands, arguments, worker results or raw error text. See [title retention and migration](docs/typed-ui.md). Open the native conversation to inspect source evidence. Worker “returned” means a reported agent outcome, not verified correctness or proof every underlying tool thread stopped.
 
 Legacy records retain task briefs, results, and private lifecycle capabilities as before; APIs omit those capabilities. No external telemetry, core patches, automatic executor, or connector probe is included. A requested recovery review invokes the normal Hermes model and incurs normal usage.
 

@@ -1,0 +1,208 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "at": {
+          "title": "At",
+          "type": "number"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "tool": {
+          "default": "",
+          "title": "Tool",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "title": "Status",
+          "type": "string"
+        },
+        "outcome": {
+          "default": "",
+          "title": "Outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "HistoryEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "created": {
+          "title": "Created",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "created"
+      ],
+      "title": "HistoryEvent",
+      "type": "object"
+    },
+    "HistoryTask": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 256,
+          "title": "Id",
+          "type": "string"
+        },
+        "session_key": {
+          "maxLength": 256,
+          "title": "Session Key",
+          "type": "string"
+        },
+        "parent_id": {
+          "maxLength": 256,
+          "title": "Parent Id",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "goal": {
+          "title": "Goal",
+          "type": "string"
+        },
+        "execution": {
+          "title": "Execution",
+          "type": "string"
+        },
+        "supervision": {
+          "title": "Supervision",
+          "type": "string"
+        },
+        "notification": {
+          "title": "Notification",
+          "type": "string"
+        },
+        "created": {
+          "title": "Created",
+          "type": "number"
+        },
+        "can_cancel": {
+          "title": "Can Cancel",
+          "type": "boolean"
+        },
+        "cancel_pending": {
+          "title": "Cancel Pending",
+          "type": "boolean"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Result"
+        },
+        "result_excerpt": {
+          "title": "Result Excerpt",
+          "type": "boolean"
+        },
+        "retry_reason": {
+          "title": "Retry Reason",
+          "type": "string"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "maxItems": 64,
+          "title": "Observations",
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/HistoryEvent"
+          },
+          "maxItems": 128,
+          "title": "Events",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "session_key",
+        "parent_id",
+        "revision",
+        "goal",
+        "execution",
+        "supervision",
+        "notification",
+        "created",
+        "can_cancel",
+        "cancel_pending",
+        "result",
+        "result_excerpt",
+        "retry_reason",
+        "observations",
+        "events"
+      ],
+      "title": "HistoryTask",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/HistoryTask"
+      },
+      "maxItems": 50,
+      "title": "Tasks",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Cursor"
+    }
+  },
+  "required": [
+    "tasks",
+    "next_cursor"
+  ],
+  "title": "HistoryPage",
+  "type": "object",
+  "$id": "HistoryPage"
+}

@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "incident_id": {
+      "maxLength": 256,
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "acknowledge",
+        "request_recovery_review"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "outbox_id": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Outbox Id"
+    }
+  },
+  "required": [
+    "incident_id",
+    "action"
+  ],
+  "title": "ActionResult",
+  "type": "object",
+  "$id": "ActionResult"
+}

@@ -1,5 +1,5 @@
 name: hermes-watchdog
-version: "0.2.0"
+version: "0.3.0-dev.1"
 description: "A native Hermes recovery inbox: related worker failures, human waits, returned results, and scoped recovery briefs."
 author: "Arthur Edmond"
 provides_tools:

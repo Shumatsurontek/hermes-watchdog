@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "maxLength": 256,
+      "title": "Task Id",
+      "type": "string"
+    },
+    "action": {
+      "const": "cancel_queued",
+      "title": "Action",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "action"
+  ],
+  "title": "CancelResult",
+  "type": "object",
+  "$id": "CancelResult"
+}

@@ -1,0 +1,11 @@
+import type {ValidateFunction} from 'ajv';
+import type {WorkPage} from './WorkPage';
+export const validateWorkPage: ValidateFunction<WorkPage>;
+import type {WorkerDetail} from './WorkerDetail';
+export const validateWorkerDetail: ValidateFunction<WorkerDetail>;
+import type {HistoryPage} from './HistoryPage';
+export const validateHistoryPage: ValidateFunction<HistoryPage>;
+import type {ActionResult} from './ActionResult';
+export const validateActionResult: ValidateFunction<ActionResult>;
+import type {CancelResult} from './CancelResult';
+export const validateCancelResult: ValidateFunction<CancelResult>;

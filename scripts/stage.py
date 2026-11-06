@@ -17,9 +17,9 @@ if root == out or root in out.parents:
     raise SystemExit("Stage outside the source checkout")
 files = [root / name for name in ("plugin.yaml", "__init__.py", "README.md", "LICENSE", "CHANGELOG.md")]
 files.append(root / "scripts" / "configure.py")
+files.append(root / "desktop" / "plugin.js")
 for folder, extensions in [
     ("watchdog", {".py"}),
-    ("desktop", {".js"}),
     ("dashboard", {".py", ".json"}),
     ("docs", {".md", ".jpg", ".txt"}),
     ("assets", {".png"}),

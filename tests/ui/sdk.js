@@ -4,7 +4,7 @@ function atom(value) {
   const listeners = new Set();
   return { get: () => value, subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); }, set: (next) => { value = next; for (const fn of listeners) fn(); } };
 }
-export const host = { state: { profile: atom('preview-fixtures'), gateway: atom('open') },
+export const host = { state: { profile: atom('preview-fixtures'), gateway: atom('open'), connectionId: atom('local-fixture') },
   async openSession(id, options) {window.watchdogHarness.opened = {id, ...options};} };
 export const useValue = (state) => useSyncExternalStore(state.subscribe, state.get);
 export const gatewayActivationEpoch = () => epoch;

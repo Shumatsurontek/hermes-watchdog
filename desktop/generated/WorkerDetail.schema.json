@@ -1,0 +1,150 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "at": {
+          "title": "At",
+          "type": "number"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "tool": {
+          "default": "",
+          "title": "Tool",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "title": "Status",
+          "type": "string"
+        },
+        "outcome": {
+          "default": "",
+          "title": "Outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Worker": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "maxLength": 256,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "maxLength": 256,
+          "title": "Parent Id",
+          "type": "string"
+        },
+        "root_id": {
+          "maxLength": 256,
+          "title": "Root Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 160,
+          "title": "Label",
+          "type": "string"
+        },
+        "label_excerpt": {
+          "title": "Label Excerpt",
+          "type": "boolean"
+        },
+        "state": {
+          "enum": [
+            "active",
+            "returned",
+            "failed",
+            "interrupted",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "waiting": {
+          "title": "Waiting",
+          "type": "boolean"
+        },
+        "updated": {
+          "title": "Updated",
+          "type": "number"
+        },
+        "gap": {
+          "maxLength": 4096,
+          "title": "Gap",
+          "type": "string"
+        },
+        "observed_errors": {
+          "title": "Observed Errors",
+          "type": "integer"
+        },
+        "last_tool": {
+          "title": "Last Tool",
+          "type": "string"
+        },
+        "event_count": {
+          "title": "Event Count",
+          "type": "integer"
+        },
+        "retained_from": {
+          "title": "Retained From",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id",
+        "parent_id",
+        "root_id",
+        "label",
+        "label_excerpt",
+        "state",
+        "waiting",
+        "updated",
+        "gap",
+        "observed_errors",
+        "last_tool",
+        "event_count",
+        "retained_from"
+      ],
+      "title": "Worker",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "worker": {
+      "$ref": "#/$defs/Worker"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "maxItems": 64,
+      "title": "Evidence",
+      "type": "array"
+    }
+  },
+  "required": [
+    "worker",
+    "evidence"
+  ],
+  "title": "WorkerDetail",
+  "type": "object",
+  "$id": "WorkerDetail"
+}
